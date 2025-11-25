@@ -10,6 +10,7 @@ from tensorboardX import SummaryWriter
 import time
 import Procedure
 from os.path import join
+from time import strftime
 # ==============================
 utils.set_seed(world.seed)
 print(">>SEED:", world.seed)

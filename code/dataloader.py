@@ -339,13 +339,35 @@ class Loader(BasicDataset):
             except :
                 print("generating adjacency matrix")
                 s = time()
-                adj_mat = sp.dok_matrix((self.n_users + self.m_items, self.n_users + self.m_items), dtype=np.float32)
-                adj_mat = adj_mat.tolil()
-                R = self.UserItemNet.tolil()
-                adj_mat[:self.n_users, self.n_users:] = R
-                adj_mat[self.n_users:, :self.n_users] = R.T
-                adj_mat = adj_mat.todok()
+                # adj_mat = sp.dok_matrix((self.n_users + self.m_items, self.n_users + self.m_items), dtype=np.float32)
+                # adj_mat = adj_mat.tolil()
+                # R = self.UserItemNet.tolil()
+                # adj_mat[:self.n_users, self.n_users:] = R
+                # adj_mat[self.n_users:, :self.n_users] = R.T
+                # adj_mat = adj_mat.todok()
                 # adj_mat = adj_mat + sp.eye(adj_mat.shape[0])
+                
+                # Use COO format directly to avoid memory issues with large datasets
+                # This avoids the expensive LIL conversion for large matrices
+                R = self.UserItemNet.tocoo()
+                n_total = self.n_users + self.m_items
+                
+                # Build bipartite adjacency matrix in COO format
+                # User-Item connections (upper right block)
+                row_ui = R.row
+                col_ui = R.col + self.n_users
+                
+                # Item-User connections (lower left block, transpose of R)
+                row_iu = R.col + self.n_users
+                col_iu = R.row
+                
+                # Combine all connections
+                row = np.concatenate([row_ui, row_iu])
+                col = np.concatenate([col_ui, col_iu])
+                data = np.concatenate([R.data, R.data])
+                
+                adj_mat = sp.coo_matrix((data, (row, col)), shape=(n_total, n_total), dtype=np.float32)
+                adj_mat = adj_mat.tocsr()
                 
                 rowsum = np.array(adj_mat.sum(axis=1))
                 d_inv = np.power(rowsum, -0.5).flatten()
